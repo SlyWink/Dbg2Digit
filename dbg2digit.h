@@ -25,7 +25,8 @@
 #define DGT_D (SEG_B|SEG_C|SEG_D|SEG_E|SEG_G)
 #define DGT_E (SEG_A|SEG_D|SEG_E|SEG_F|SEG_G)
 #define DGT_F (SEG_A|SEG_E|SEG_F|SEG_G)
-#define DGT_X (SEG_G)
+#define DGT_INI (SEG_G)
+#define DGT_ERR (SEG_A|SEG_D|SEG_G)
 
 const uint8_t EEMEM TB_DIGITS[16] = {
   DGT_0, DGT_1, DGT_2, DGT_3, DGT_4, DGT_5, DGT_6, DGT_7,
@@ -47,5 +48,8 @@ const uint8_t EEMEM TB_PORTS[2][7] = {
 #define LEFT 0
 #define RIGHT 1
 
-#define FALSE 0
-#define TRUE 1
+#define NIBBLE_INI -1
+#define NIBBLE_ERR -2
+
+#define WAIT_UNIT 50
+#define WAIT_5SEC (5000/WAIT_UNIT)

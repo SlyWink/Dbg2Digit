@@ -1,14 +1,24 @@
 #define F_CPU 1000000UL
+#define BAUD 9600
 
 #include "dbg2digit.h"
 #include <util/delay.h>
+#include <util/setbaud.h>
 
 
-void Display_Digit(uint8_t p_digit, int8_t p_nibble) {
+uint8_t __Get_Segments(int8_t p_nibble) {
+  switch (p_nibble) {
+    case NIBBLE_INI : return (DGT_INI) ;
+    case NIBBLE_ERR : return (DGT_ERR) ;
+    default : return (eeprom_read_byte(&TB_DIGITS[p_nibble])) ;
+  }
+}
+
+
+void _Display_Digit(uint8_t p_digit, int8_t p_nibble) {
   uint8_t l_segments, l_segment, l_portpin, l_pin ;
 
-  if (p_nibble<0) l_segments = DGT_X ;
-    else l_segments = eeprom_read_byte(&TB_DIGITS[p_nibble]) ;
+  l_segments = __Get_Segments(p_nibble) ;
   for (l_segment=0 ; l_segment<7 ; l_segment++) {
     l_portpin = eeprom_read_byte(&TB_PORTS[p_digit][l_segment]) ;
     l_pin = _BV(l_portpin & 0x0F) ;
@@ -30,24 +40,58 @@ void Display_Digit(uint8_t p_digit, int8_t p_nibble) {
 }
 
 
-void Init_Display() {
-  Display_Digit(LEFT,-1) ;
-  Display_Digit(RIGHT,-1) ;
+void Display_Init(void) {
+  _Display_Digit(LEFT,NIBBLE_INI) ;
+  _Display_Digit(RIGHT,NIBBLE_INI) ;
+}
+
+
+void Display_Error(void) {
+  _Display_Digit(LEFT,NIBBLE_ERR) ;
+  _Display_Digit(RIGHT,NIBBLE_ERR) ;
 }
 
 
 void Display_Byte(uint8_t p_byte) {
-  Display_Digit(LEFT,(p_byte & 0xF0) >> 4) ;
-  Display_Digit(RIGHT,p_byte & 0x0F) ;
+  _Display_Digit(LEFT,(p_byte & 0xF0) >> 4) ;
+  _Display_Digit(RIGHT,p_byte & 0x0F) ;
 }
 
 
-int main(void) {
-  uint8_t cpt ;
 
-  cpt = 0 ;
+void Init_Usart(void) {
+  // Baut rate 9600
+  UBRRH = UBRRH_VALUE ;
+  UBRRL = UBRRL_VALUE ;
+  // 8 bits, no parity, 1 stop bit
+  UCSRC = _BV(UCSZ1)|_BV(UCSZ0) ;
+  // Receive only
+  UCSRB = _BV(RXEN) ;
+}
+
+
+#define Byte_Received() (UCSRA & _BV(RXC))
+
+
+#define Error_Status() (UCSRA & (_BV(FE)|_BV(DOR)))
+
+
+int main(void) {
+  uint8_t l_error, l_byte ;
+  int8_t l_delay ;
+
+  Init_Usart() ;
+  l_delay = 0 ;
   while(1) {
-    if (!cpt) { Init_Display() ; _delay_ms(5000) ; }
-    Display_Byte(cpt++) ; _delay_ms(500) ;
+    while(!Byte_Received()) {
+      // Display init after 5 seconds
+      if (!l_delay) Display_Init() ;
+        else if (l_delay > 0) l_delay-- ;
+      _delay_ms(WAIT_UNIT) ;
+    }
+    l_error = Error_Status() ;
+    l_byte = UDR ;
+    if (l_error) Display_Error() ; else Display_Byte(l_byte);
+    l_delay = WAIT_5SEC ;
   }
 }
