@@ -38,9 +38,8 @@ const uint8_t EEMEM TB_DIGITS[16] = {
 #define PRT_D (1<<6)
 
 // 2 matrices de 7 segments : a1 - g1 et a2 - g2
-// pnnnn avec nnnn = n°de port, p = 0 si port B ou p = 1 si port D
+// pppnnnn avec nnnn = n°de port, ppp = 001 port A, 010 port B, 100 port D
 const uint8_t EEMEM TB_PORTS[2][7] = {
-// { (PRT_D|1), (PRT_B|4), (PRT_B|5), (PRT_B|6), (PRT_B|7), (PRT_D|3), (PRT_D|0) },
  { (PRT_D|PD3), (PRT_B|PB4), (PRT_B|PB5), (PRT_B|PB6), (PRT_B|PB7), (PRT_D|PD1), (PRT_A|PA1) },
  { (PRT_D|PD4), (PRT_D|PD5), (PRT_B|PB0), (PRT_B|PB2), (PRT_B|PB3), (PRT_D|PD6), (PRT_B|PB1) }
 } ;
@@ -53,3 +52,7 @@ const uint8_t EEMEM TB_PORTS[2][7] = {
 
 #define WAIT_UNIT 50
 #define WAIT_5SEC (5000/WAIT_UNIT)
+
+#define USART_DDR DDRD
+#define USART_PORT PORTD
+#define USART_RXD PD0

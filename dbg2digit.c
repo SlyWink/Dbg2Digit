@@ -60,20 +60,32 @@ void Display_Byte(uint8_t p_byte) {
 
 
 void Init_Usart(void) {
-  // Baut rate 9600
+  // RXD pin : output with pull-up enabled
+  USART_DDR &= ~_BV(USART_RXD) ; // Output
+  USART_PORT |= _BV(USART_RXD) ; // Pull-up
+  
+  // Set baut rate
   UBRRH = UBRRH_VALUE ;
   UBRRL = UBRRL_VALUE ;
   // 8 bits, no parity, 1 stop bit
   UCSRC = _BV(UCSZ1)|_BV(UCSZ0) ;
+#if USE_2X
+//  UCSRA |= _BV(U2X);
+  UCSRA = _BV(U2X) ;
+#else
+//  UCSRA &= ~_BV(U2X);
+  UCSRA = 0 ;
+#endif
   // Receive only
-  UCSRB = _BV(RXEN) ;
+//  UCSRB = _BV(RXEN) ;
 }
 
 
 #define Byte_Received() (UCSRA & _BV(RXC))
 
 
-#define Error_Status() (UCSRA & (_BV(FE)|_BV(DOR)))
+//#define Error_Status() (UCSRA & (_BV(FE)|_BV(DOR)))
+#define Error_Status() (UCSRA & _BV(FE))
 
 
 int main(void) {
@@ -83,6 +95,8 @@ int main(void) {
   Init_Usart() ;
   l_delay = 0 ;
   while(1) {
+//    l_byte = UDR ;
+  UCSRB |= _BV(RXEN) ;
     while(!Byte_Received()) {
       // Display init after 5 seconds
       if (!l_delay) Display_Init() ;
@@ -91,7 +105,11 @@ int main(void) {
     }
     l_error = Error_Status() ;
     l_byte = UDR ;
-    if (l_error) Display_Error() ; else Display_Byte(l_byte);
+//    if (l_error) Display_Error() ; else Display_Byte(l_byte);
+    if (l_error) { Display_Error() ; _delay_ms(500) ; }
+    Display_Byte(l_byte);
+  UCSRB &= ~_BV(RXEN) ;
+
     l_delay = WAIT_5SEC ;
   }
 }
