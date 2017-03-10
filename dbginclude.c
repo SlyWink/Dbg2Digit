@@ -1,7 +1,7 @@
 #include <avr/io.h>
 #include <util/delay.h>
 
-#define SERIAL_BIT_DELAY_US (1000000L / 1200)
+#define SERIAL_BIT_DELAY_US (1000000L / 9600)
 
 #ifndef SERIAL_DEBUG_DDR
 # warning "SERIAL_DEBUG_DDR not defined -> choosing DDRB"
@@ -40,6 +40,6 @@ void Serial_Debug_Send(uint8_t l_byte) {
     _delay_us(SERIAL_BIT_DELAY_US) ;
   }
   // Stop bit : high level
-  SERIAL_DEBUG_PORT |= _BV(SERIAL_DEBUG_PIN) ;
+  SERIAL_DEBUG_PORT |= SERIAL_DEBUG_PIN ;
   _delay_us(SERIAL_BIT_DELAY_US) ;
 }
