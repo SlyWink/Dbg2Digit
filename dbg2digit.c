@@ -1,9 +1,7 @@
 #define F_CPU 1000000UL
-#define BAUD 9600
 
 #include "dbg2digit.h"
 #include <util/delay.h>
-#include <util/setbaud.h>
 
 
 uint8_t __Get_Segments(int8_t p_nibble) {
@@ -58,58 +56,26 @@ void Display_Byte(uint8_t p_byte) {
 }
 
 
-
-void Init_Usart(void) {
-  // RXD pin : output with pull-up enabled
-  USART_DDR &= ~_BV(USART_RXD) ; // Output
-  USART_PORT |= _BV(USART_RXD) ; // Pull-up
-  
-  // Set baut rate
-  UBRRH = UBRRH_VALUE ;
-  UBRRL = UBRRL_VALUE ;
-  // 8 bits, no parity, 1 stop bit
-  UCSRC = _BV(UCSZ1)|_BV(UCSZ0) ;
-#if USE_2X
-//  UCSRA |= _BV(U2X);
-  UCSRA = _BV(U2X) ;
-#else
-//  UCSRA &= ~_BV(U2X);
-  UCSRA = 0 ;
-#endif
-  // Receive only
-//  UCSRB = _BV(RXEN) ;
-}
-
-
-#define Byte_Received() (UCSRA & _BV(RXC))
-
-
-//#define Error_Status() (UCSRA & (_BV(FE)|_BV(DOR)))
-#define Error_Status() (UCSRA & _BV(FE))
-
-
 int main(void) {
-  uint8_t l_error, l_byte ;
-  int8_t l_delay ;
+  uint8_t l_cpt, l_byte ;
 
-  Init_Usart() ;
-  l_delay = 0 ;
+  // RXD pin : input with pull-up enabled
+  SERIAL_RX_DATA_DIR_REG &= ~_BV(SERIAL_RX_PIN_NUM) ;
+  SERIAL_RX_DATA_REG |= _BV(SERIAL_RX_PIN_NUM) ;
+
+  Display_Init() ;
   while(1) {
-//    l_byte = UDR ;
-  UCSRB |= _BV(RXEN) ;
-    while(!Byte_Received()) {
-      // Display init after 5 seconds
-      if (!l_delay) Display_Init() ;
-        else if (l_delay > 0) l_delay-- ;
-      _delay_ms(WAIT_UNIT) ;
+    l_byte = 0 ;
+    _delay_ms(10) ;
+    while(SERIAL_RX_INPUT_PIN_ADDR & _BV(SERIAL_RX_PIN_NUM)) ;
+    _delay_us(SERIAL_BIT_DELAY_US / 4) ;
+    for (l_cpt=0 ; l_cpt<8 ; l_cpt++) {
+      _delay_us(SERIAL_BIT_DELAY_US) ;
+      if (SERIAL_RX_INPUT_PIN_ADDR & _BV(SERIAL_RX_PIN_NUM)) l_byte |= 1 ;
+      l_byte <<= 1 ;
     }
-    l_error = Error_Status() ;
-    l_byte = UDR ;
-//    if (l_error) Display_Error() ; else Display_Byte(l_byte);
-    if (l_error) { Display_Error() ; _delay_ms(500) ; }
-    Display_Byte(l_byte);
-  UCSRB &= ~_BV(RXEN) ;
-
-    l_delay = WAIT_5SEC ;
+    _delay_us(SERIAL_BIT_DELAY_US) ;
+    if (SERIAL_RX_INPUT_PIN_ADDR & _BV(SERIAL_RX_PIN_NUM)) Display_Byte(l_byte) ;
+      else Display_Error() ;
   }
 }
