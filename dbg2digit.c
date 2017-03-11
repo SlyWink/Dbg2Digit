@@ -78,6 +78,16 @@ void Init_Usart(void) {
 }
 
 
+void Set_Unused_Pins () {
+  // Input
+  DDRA &= ~(_BV(PA0)|_BV(PA2)) ;
+  DDRD &= ~_BV(PD2) ;
+  // Pull-Up enabled
+  PORTA |= _BV(PA0)|_BV(PA2) ;
+  PORTD |= _BV(PD2) ;
+}
+
+
 #define Byte_Received() (UCSRA & _BV(RXC))
 
 #define Error_Status() (UCSRA & (_BV(FE)|_BV(DOR)))
@@ -88,6 +98,7 @@ int main(void) {
   int8_t l_delay ;
 
   Init_Usart() ;
+  Set_Unused_Pins() ;
   l_delay = 0 ;
   while(1) {
     while(!Byte_Received()) {
