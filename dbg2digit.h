@@ -25,7 +25,7 @@
 #define DGT_D (SEG_B|SEG_C|SEG_D|SEG_E|SEG_G)
 #define DGT_E (SEG_A|SEG_D|SEG_E|SEG_F|SEG_G)
 #define DGT_F (SEG_A|SEG_E|SEG_F|SEG_G)
-#define DGT_INI (SEG_G)
+#define DGT_CLR 0
 #define DGT_ERR (SEG_A|SEG_D|SEG_G)
 
 const uint8_t EEMEM TB_DIGITS[16] = {
@@ -47,7 +47,7 @@ const uint8_t EEMEM TB_PORTS[2][7] = {
 #define LEFT 0
 #define RIGHT 1
 
-#define NIBBLE_INI -1
+#define NIBBLE_CLR -1
 #define NIBBLE_ERR -2
 
 #define WAIT_UNIT 50
@@ -56,3 +56,8 @@ const uint8_t EEMEM TB_PORTS[2][7] = {
 #define USART_DDR DDRD
 #define USART_PORT PORTD
 #define USART_RXD PD0
+
+#define RX_WAITING 0xFF
+
+static volatile uint8_t  g_rx_error ;
+static volatile uint8_t  g_rx_byte ;

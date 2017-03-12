@@ -4,11 +4,13 @@
 #include "dbg2digit.h"
 #include <util/delay.h>
 #include <util/setbaud.h>
+#include <avr/interrupt.h>
+#include <avr/sleep.h>
 
 
 uint8_t __Get_Segments(int8_t p_nibble) {
   switch (p_nibble) {
-    case NIBBLE_INI : return (DGT_INI) ;
+    case NIBBLE_CLR : return (DGT_CLR) ;
     case NIBBLE_ERR : return (DGT_ERR) ;
     default : return (eeprom_read_byte(&TB_DIGITS[p_nibble])) ;
   }
@@ -40,9 +42,10 @@ void _Display_Digit(uint8_t p_digit, int8_t p_nibble) {
 }
 
 
-void Display_Init(void) {
-  _Display_Digit(LEFT,NIBBLE_INI) ;
-  _Display_Digit(RIGHT,NIBBLE_INI) ;
+void Clear_Display(void) {
+  _Display_Digit(LEFT,NIBBLE_CLR) ;
+  _Display_Digit(RIGHT,NIBBLE_CLR) ;
+
 }
 
 
@@ -57,6 +60,11 @@ void Display_Byte(uint8_t p_byte) {
   _Display_Digit(RIGHT,p_byte & 0x0F) ;
 }
 
+
+ISR(USART_RX_vect) {
+  g_rx_error = (UCSRA & (_BV(FE)|_BV(DOR))) ;
+  g_rx_byte = UDR ;
+}
 
 
 void Init_Usart(void) {
@@ -73,12 +81,12 @@ void Init_Usart(void) {
 #else
   UCSRA &= ~_BV(U2X);
 #endif
-  // Receive only
-  UCSRB = _BV(RXEN) ;
+  // Receive only + interrupt driven
+  UCSRB = _BV(RXEN)|_BV(RXCIE) ;
 }
 
 
-void Set_Unused_Pins () {
+void Set_Unused_Pins (void) {
   // Input
   DDRA &= ~(_BV(PA0)|_BV(PA2)) ;
   DDRD &= ~_BV(PD2) ;
@@ -88,28 +96,37 @@ void Set_Unused_Pins () {
 }
 
 
-#define Byte_Received() (UCSRA & _BV(RXC))
-
-#define Error_Status() (UCSRA & (_BV(FE)|_BV(DOR)))
+void Start_Display(void) {
+  uint8_t l_cpt ;
+  for (l_cpt=0 ; l_cpt<3 ; l_cpt++) {
+    Display_Byte(0x88) ; _delay_ms(300) ;
+    Clear_Display() ; _delay_ms(100) ;
+  }
+}
 
 
 int main(void) {
-  uint8_t l_error, l_byte ;
-  int8_t l_delay ;
+  uint8_t l_delay ;
 
   Init_Usart() ;
   Set_Unused_Pins() ;
+  Start_Display() ;
   l_delay = 0 ;
+  set_sleep_mode(SLEEP_MODE_IDLE) ;
+  sei() ;
   while(1) {
-    while(!Byte_Received()) {
-      // Display init after 5 seconds
-      if (!l_delay) Display_Init() ;
-        else if (l_delay > 0) l_delay-- ;
-      _delay_ms(WAIT_UNIT) ;
+    g_rx_error = RX_WAITING ;
+    while(g_rx_error == RX_WAITING) {
+      // Clear display after 5 seconds
+      if (!l_delay) {
+        Clear_Display() ;
+        sleep_mode() ;
+      } else {
+        l_delay-- ;
+        _delay_ms(WAIT_UNIT) ;
+      }
     }
-    l_error = Error_Status() ;
-    l_byte = UDR ;
-    if (l_error) Display_Error() ; else Display_Byte(l_byte);
+    if (g_rx_error) Display_Error() ; else Display_Byte(g_rx_byte);
     l_delay = WAIT_5SEC ;
   }
 }
