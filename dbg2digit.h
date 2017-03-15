@@ -50,14 +50,14 @@ const uint8_t EEMEM TB_PORTS[2][7] = {
 #define NIBBLE_CLR -1
 #define NIBBLE_ERR -2
 
-#define WAIT_UNIT 50
-#define WAIT_5SEC (5000/WAIT_UNIT)
-
 #define USART_DDR DDRD
 #define USART_PORT PORTD
 #define USART_RXD PD0
 
-#define RX_WAITING 0xFF
-
 static volatile uint8_t  g_rx_error ;
 static volatile uint8_t  g_rx_byte ;
+
+#define EVT_STARTBIT 1
+#define EVT_SERIALRX 2
+
+static volatile uint8_t  g_event ;

@@ -2,7 +2,6 @@
 #define BAUD 9600
 
 #include "dbg2digit.h"
-#include <util/delay.h>
 #include <util/setbaud.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
@@ -45,7 +44,6 @@ void _Display_Digit(uint8_t p_digit, int8_t p_nibble) {
 void Clear_Display(void) {
   _Display_Digit(LEFT,NIBBLE_CLR) ;
   _Display_Digit(RIGHT,NIBBLE_CLR) ;
-
 }
 
 
@@ -64,10 +62,19 @@ void Display_Byte(uint8_t p_byte) {
 ISR(USART_RX_vect) {
   g_rx_error = (UCSRA & (_BV(FE)|_BV(DOR))) ;
   g_rx_byte = UDR ;
+  g_event |= EVT_SERIALRX ;
 }
 
 
-void Init_Usart(void) {
+ISR(INT0_vect) {
+  g_event |= EVT_STARTBIT ;
+}
+
+
+EMPTY_INTERRUPT(WDT_OVERFLOW_vect) ;
+
+
+void Init_Serial(void) {
   // RXD pin : input with pull-up enabled
   USART_DDR &= ~_BV(USART_RXD) ; // Input
   USART_PORT |= _BV(USART_RXD) ; // Pull-up
@@ -83,50 +90,59 @@ void Init_Usart(void) {
 #endif
   // Receive only + interrupt driven
   UCSRB = _BV(RXEN)|_BV(RXCIE) ;
+  // INT0 pin connected to RXD pin to wake up from sleep mode
+  MCUCR |= _BV(ISC01) ; // Falling edge = start bit
+  GIMSK |= _BV(INT0) ; 
 }
 
 
-void Set_Unused_Pins (void) {
+void Set_Other_Pins (void) {
   // Input
   DDRA &= ~(_BV(PA0)|_BV(PA2)) ;
-  DDRD &= ~_BV(PD2) ;
+  DDRD &= ~_BV(PD2) ; // Used (INT0) to detect start bit
   // Pull-Up enabled
   PORTA |= _BV(PA0)|_BV(PA2) ;
   PORTD |= _BV(PD2) ;
 }
 
 
+void Init_Watchdog(void) {
+  WDTCSR = _BV(WDP1)|_BV(WDP0) ;
+}
+
+
+void Sleep_125ms(int8_t p_tics) {
+  WDTCSR |= _BV(WDIE) ;
+  while(!(g_event & EVT_STARTBIT)) {
+    sleep_mode() ;
+    if (p_tics > 0 && !--p_tics) break ;
+  }
+  WDTCSR &= ~_BV(WDIE) ;
+}
+
+
 void Start_Display(void) {
   uint8_t l_cpt ;
   for (l_cpt=0 ; l_cpt<3 ; l_cpt++) {
-    Display_Byte(0x88) ; _delay_ms(300) ;
-    Clear_Display() ; _delay_ms(100) ;
+    Display_Byte(0x88) ; Sleep_125ms(3) ;
+    Clear_Display() ; Sleep_125ms(1) ;
   }
 }
 
 
 int main(void) {
-  uint8_t l_delay ;
-
-  Init_Usart() ;
-  Set_Unused_Pins() ;
-  Start_Display() ;
-  l_delay = 0 ;
+  Init_Serial() ;
+  Init_Watchdog() ;
+  Set_Other_Pins() ;
   set_sleep_mode(SLEEP_MODE_IDLE) ;
   sei() ;
+  Start_Display() ;
   while(1) {
-    g_rx_error = RX_WAITING ;
-    while(g_rx_error == RX_WAITING) {
-      // Clear display after 5 seconds
-      if (!l_delay) {
-        Clear_Display() ;
-        sleep_mode() ;
-      } else {
-        l_delay-- ;
-        _delay_ms(WAIT_UNIT) ;
-      }
-    }
+    Sleep_125ms(-1) ;
+    while (!(g_event & EVT_SERIALRX)) ;
+    g_event = 0 ;
     if (g_rx_error) Display_Error() ; else Display_Byte(g_rx_byte);
-    l_delay = WAIT_5SEC ;
+    Sleep_125ms(40) ;
+    Clear_Display() ;
   }
 }
